@@ -1,109 +1,129 @@
-# Reproducible Deep Learning
-## PhD Course in Data Science, 2021, 3 CFU
-[[Official website](https://www.sscardapane.it/teaching/reproducibledl/)]
+# ESC-50 audio classification
 
-This practical PhD course explores the design of a simple *reproducible* environment for a deep learning project, using free, open-source tools ([Git](https://git-scm.com/), [DVC](http://dvc.org/), [Docker](https://www.docker.com/), [Hydra](https://github.com/facebookresearch/hydra), ...). The choice of tools is opinionated, and was made as a trade-off between practicality and didactical concerns.
+Train an audio classifier, save its best validation model, and evaluate it on held-out audio.
+This branch adapts Simone Scardapane's MIT-licensed [Reproducible Deep Learning course](https://github.com/sscardapane/reprodl2021).
+The original `Initial Notebook.ipynb`, license, and [upstream instructions](docs/UPSTREAM_README.md) are preserved.
+Use the new scripts or notebooks below; the original notebook retains its historical APIs.
 
-## Local set-up
+## Environment
 
-The use case of the course is an audio classification model trained on the [ESC-50](https://github.com/karolpiczak/ESC-50) dataset. To set-up your local machine (or a proper virtual / remote environment), configure [Anaconda](https://www.anaconda.com/products/individual), and create a clean environment:
+Use **Python 3.12** and run these commands from the repository folder.
+A standalone `.venv` has already been prepared on this laptop; it does not reference the ComfyUI environment.
+For a fresh installation on Windows:
 
-```bash
-conda create -n reprodl; conda activate reprodl
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python -m pip install -r requirements.txt
+.\.venv\Scripts\python -m ipykernel install --user --name reprodl2021 --display-name "ESC-50 (repo .venv)"
 ```
 
-> ⚠️ For an alternative setup without Anaconda, see [issue #2](https://github.com/sscardapane/reprodl2021/issues/2).
+`requirements.txt` pins the direct project dependencies. For the exact validated Windows/Python 3.12
+dependency versions, install `requirements-lock.txt` instead. Both files include the GPU wheel index.
 
-Then, install a few generic prerequisites (notebook handling, Pandas, …):
+The pinned PyTorch wheels target Windows/Linux with NVIDIA CUDA 12.9 support. They work on this laptop's verified GPU setup;
+other machines may need a different wheel build. For CPU-only installation, replace the first two requirements
+with `torch==2.8.0` and `torchaudio==2.8.0`, and use the official CPU wheel index when installing those packages.
+macOS requires its platform-supported PyTorch wheels. Runtime selection defaults to GPU when available and otherwise CPU.
 
-```bash
-conda install -y -c conda-forge notebook matplotlib pandas ipywidgets pathlib
+PowerShell does not need environment activation when using the explicit interpreter paths above.
+In Git Bash, the equivalent interpreter path is `./.venv/Scripts/python.exe`.
+
+## Dataset
+
+Download and extract [ESC-50](https://github.com/karolpiczak/ESC-50/archive/refs/heads/master.zip) into `data/`:
+
+```text
+data/ESC-50-master/
+    audio/          # 2,000 WAV files
+    meta/esc50.csv
 ```
 
-Finally, install [PyTorch](https://pytorch.org/) and [PyTorch Lightning](https://github.com/PyTorchLightning/pytorch-lightning). The instructions below can vary depending on whether you have a CUDA-enabled machine, Linux, etc. In general, follow the instructions from the websites.
+The existing dataset has been copied into this repository's ignored `data/` folder on this laptop.
+For another location, pass `--data-dir "path/to/ESC-50-master"` to both scripts.
+Metadata, class counts, filenames, and the presence of all audio files are checked before training.
+Dataset licensing and attribution are separate from the code license; retain the dataset's README and license files.
 
-```bash
-conda install -y pytorch torchvision torchaudio cudatoolkit=10.2 -c pytorch -c conda-forge
-conda install -y pytorch-lightning -c conda-forge
+## Train and test
+
+```powershell
+.\.venv\Scripts\python train.py --epochs 25
+.\.venv\Scripts\python test.py
 ```
 
-This should be enough to let you run the [initial notebook](https://github.com/sscardapane/reprodl2021/blob/main/Initial%20Notebook.ipynb). More information on the use case can be found inside the notebook itself.
+Alternatively open `train.ipynb`, select **ESC-50 (repo .venv)**, and run all cells. Then run `test.ipynb` with the same kernel.
+The notebooks should run from the repository directory. Their data/output settings are in the first code cell.
+The notebooks and scripts use the same shared model and preprocessing functions.
 
-> :warning: For Windows only, install a [backend for torchaudio](https://pytorch.org/audio/stable/backend.html):
-> ```bash
-> pip install soundfile
-> ```
+| Split | Folds | Clips | Purpose |
+| --- | --- | --- | --- |
+| Training | 1, 2, 3 | 1,200 | Update model weights |
+| Validation | 4 | 400 | Select the best epoch |
+| Test | 5 | 400 | Evaluate the selected checkpoint |
 
-### Additional set-up steps
+The train script never evaluates fold 5. The test script reconstructs the model and feature settings from the checkpoint,
+checks class names and the metadata fingerprint, and evaluates only fold 5 in inference mode.
+Feature caching may process all clips, but it fits no statistics across clips; normalization is independent for every clip.
 
-The following steps are not mandatory, but will considerably simplify the experience.
+Training preserves the original four-convolution AudioNet architecture, with Adam at learning rate 0.001 and no dropout,
+weight decay, or scheduler by default. The runnable baseline uses explicit 8 kHz, 64-band log-mel features
+(`n_fft=512`, `hop_length=256`, `top_db=80`) and per-clip standardization.
+These preprocessing settings differ from the original notebook's implicit defaults, so results are not an exact reproduction.
+Audio uses its actual sample rate, is mixed to mono, and is padded or truncated to five seconds.
+Feature caches invalidate when settings, metadata, audio size/timestamps, or PyTorch/torchaudio versions change.
 
-1. If you are on Windows, install the [Windows Subsystem for Linux](https://docs.microsoft.com/en-us/windows/wsl/install-win10). This is useful in a number of contexts, including Docker installation.
-2. We will use Git from the command line multiple times, so consider enabling [GitHub access with an SSH key](https://docs.github.com/en/github/authenticating-to-github/connecting-to-github-with-ssh).
-3. We will experiment with Docker reproducibility on the [Sapienza DGX environment](https://www.uniroma1.it/sites/default/files/field_file_allegati/presentazione_ga_13-05-2019_sgiagu.pdf). If you have not done so already, set-up your access to the machine.
+Each training run needs an empty output directory to prevent accidentally replacing a previous model.
+The default is `outputs/baseline`. For a new experiment:
 
-## Organization of the course
-
-<p align="center">
-<img align="center" src="https://github.com/sscardapane/reprodl2021/blob/main/reprodl_overview.png" width="500" style="border: 1px solid black;">
-</p>
-
-The course is split into **exercises** (e.g., adding DVC support). The material for each exercise is provided as a Git branch. To follow an exercise, switch to the corresponding branch, and follow the README there. If you want to see the completed exercise, add *_completed* to the name of the branch. Additional material and information can be found on the [main website](https://www.sscardapane.it/teaching/reproducibledl/) of the course.
-
-**List of exercises**:
-
-- [x] Experimenting with Git, branches, and scripting (*exercise1_git*).
-- [x] Adding Hydra configuration (*exercise2_hydra*).
-- [x] Versioning data with DVC (*exercise3_dvc*).
-- [x] Creating a Dockerfile (*exercise4_docker*).
-- [x] Experiment management with Weight & Biases (*exercise5_wandb*). 
-- [x] Unit testing and formatting with continuous integration (*exercise6_hooks*).
-
-### An example
-
-If you want to follow the first exercise, switch to the corresponding branch and follow the instructions from there:
-
-```bash
-git checkout exercise1_git
+```powershell
+.\.venv\Scripts\python train.py --epochs 25 --dropout 0.3 --weight-decay 0.001 --scheduler cosine --output-dir outputs/experiment-01
+.\.venv\Scripts\python test.py --checkpoint outputs/experiment-01/audionet.ckpt
 ```
 
-If you want to see the completed exercise:
+Choose optimization settings using validation results before evaluating the final candidate on test data.
+These options are available for experiments; improved accuracy is not guaranteed.
+Use `--device cpu` to force CPU, `--device cuda` to require GPU, and `--seed`, `--batch-size`,
+`--learning-rate`, and `--cache-dir` as needed. See each script's `--help` for all options.
+Seeded runs improve repeatability; exact results across GPU hardware/software are not guaranteed.
 
-```bash
-git checkout exercise1_git_completed
+To compare with the original notebook's feature settings and batch size using the same supported training code:
+
+```powershell
+.\.venv\Scripts\python train.py --epochs 25 --feature-preset original --batch-size 8 --output-dir outputs/comparison/original
+.\.venv\Scripts\python test.py --checkpoint outputs/comparison/original/audionet.ckpt --batch-size 8
 ```
 
-You can inspect the commits to look at specific changes in the code:
+The `original` preset uses 128 mel bands, FFT size 400, hop length 200, and no per-clip standardization.
+This is a compatibility adaptation: the historical Lightning APIs and unfinished test loop are replaced.
+Both presets use the best validation checkpoint for a consistent comparison.
 
-```bash
-git log --graph --abbrev-commit --decorate
+## Outputs
+
+Training writes to `outputs/baseline/` by default:
+
+- `audionet.ckpt`: best validation model, class names, feature settings, split definition, and run configuration.
+- `history.csv` and `training_curves.png`: epoch losses, accuracies, and learning rates.
+- `audio_example.png`: waveform and corresponding log-mel features.
+- `run_config.json`: settings, environment, and dataset fingerprints.
+- `train_metrics.json`: selected epoch and validation accuracy.
+
+Testing writes to the checkpoint directory's `test/` subfolder:
+
+- `test_metrics.json`: accuracy, loss, macro F1, selected epoch, and checkpoint fingerprint.
+- `confusion_matrix.png` / `.csv`: errors across the 50 classes.
+- `per_class_metrics.csv`: precision, recall, F1, and support; undefined precision is recorded as zero.
+- `predictions.csv`: each clip's true/predicted category, softmax confidence, and correctness.
+
+Softmax confidence is not calibrated. Checkpoint files use this branch's PyTorch format and are not interchangeable
+with original Lightning checkpoints or the earlier `20-10` three-block model.
+A single test fold is an introductory baseline, not the official five-fold mean. Random guessing has expected accuracy 2%.
+
+## Verification
+
+```powershell
+.\.venv\Scripts\python -m unittest discover -s tests -v
+.\.venv\Scripts\python -m pip check
 ```
 
-If you want to inspect a specific change, you can checkout again using the ID of the commit.
-
-### Contributing
-
-Thanks to [Jeroen Van Goey](https://github.com/BioGeek) for the error hunting. Feel free to open a pull request if you have suggestions on the current material or ideas for some extra exercises (see below). 
-
-> ⚠️ Because of the sequential nature of the repository, changing something in one of the initial branches might trigger necessary changes in all downstream branches.
-
-### Extra material (students & more)
-
-**Extra** branches contain material that was not covered in the course (e.g., new libraries for hyper-parameter optimization), implemented by the students for the exam. They can be read independently from the main branches. Refer to the original authors for more information.
-
-| Author | Branch | Content |
-| ------------- | ------------- |------------- |
-| [OfficiallyDAC](https://github.com/OfficiallyDAC) | [extra_optuna](https://github.com/sscardapane/reprodl2021/tree/extra_optuna) | Fine-tuning hyper-parameters with [Optuna](https://optuna.readthedocs.io/en/latest/installation.html). |
-| [FraLuca](https://github.com/FraLuca) | [extra_torchserve](https://github.com/sscardapane/reprodl2021/tree/extra_torchserve) | Serving models with [TorchServe](https://pytorch.org/serve/). |
-| [FedericoCinus](https://github.com/FedericoCinus) | [extra_dvc_experiments_management](https://github.com/sscardapane/reprodl2021/tree/extra_dvc_experiments_management) | Using DVC for managing experiments. |
-| [siciliano-diag](https://github.com/siciliano-diag) | [extra_python-crontab](https://github.com/sscardapane/reprodl2021/tree/extra_python-crontab) | Understand how to set cronjobs in a simple way. |
-| [gditeodoro](https://github.com/gditeodoro) | [extra_axplatform](https://github.com/sscardapane/reprodl2021/tree/extra_axplatform) | Fine-tuning hyper-parameters with the [Ax Platform](https://ax.dev/). |
-| [eleGAN23](https://github.com/eleGAN23), [guarrasi1995](https://github.com/guarrasi1995), [andreamarco](https://github.com/andremarco) | [extra_tune](https://github.com/sscardapane/reprodl2021/tree/extra_tune) | Fine-tuning hyper-parameters with [Ray Tune](https://docs.ray.io/en/master/tune/index.html). |
-| [lrnzgiusti](https://github.com/lrnzgiusti) | [extra_autopytorch](https://github.com/sscardapane/reprodl2021/tree/extra_autopytorch) | Fine-tuning hyper-parameters with [Auto-PyTorch](https://github.com/automl/Auto-PyTorch). |
-| [eleGAN23](https://github.com/eleGAN23), [guarrasi1995](https://github.com/guarrasi1995), [andreamarco](https://github.com/andremarco) | [extra_talos](https://github.com/sscardapane/reprodl2021/tree/extra_talos) | Fine-tuning hyper-parameters with [Talos](https://github.com/autonomio/talos). |
-| [lucamaiano](https://github.com/lucamaiano) | [extra_poetry](https://github.com/sscardapane/reprodl2021/tree/extra_poetry) | Dependency management with [Poetry](https://python-poetry.org/). |
-| [memis12](https://github.com/memis12), [AndMastro](https://github.com/AndMastro) | [extra_netron](https://github.com/sscardapane/reprodl2021/tree/extra_netron) | Visualizing the model using [Netron](https://netron.app/) |
-
-### Advanced reading material
-
-If you liked the exercises and are planning to explore more, the new edition of [Full Stack Deep Learning](https://fullstackdeeplearning.com/) (UC Berkeley CS194-080) covers a larger set of material than this course. Another good resource (divided in small exercises) is the [MLOps](https://github.com/GokuMohandas/mlops) repository by Goku Mohandas. [lucmos/nn-template](https://github.com/lucmos/nn-template) is a fully-functioning template implementing many of the tools described in this course.
+Checks cover fold isolation, checkpoint prediction round trips, feature cache invalidation keys, and metrics for classes
+with no predicted examples. Full dataset train/test results are recorded in [docs/VALIDATION.md](docs/VALIDATION.md).
+Virtual environments, datasets, caches, and generated models/results are ignored by Git.
