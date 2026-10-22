@@ -27,6 +27,13 @@ use the explicit checkpoint above for the optimized model.
 
 ![Optimization results](artifacts/optimization_comparison.png)
 
+The `newcode1.ipynb` notebook also presents the ten most confused sound pairs, confidence distributions
+for correct/incorrect predictions, and one correct/incorrect waveform-spectrogram pair. The full confusion
+matrix is in an expandable section. These plots use saved predictions and raw audio; they do not retrain
+the model or change scores. Regenerate the standalone figures with `python visualize_results.py` after
+environment and dataset setup. Figure files and the deterministic example-selection record are in
+`artifacts/optimized/visualizations/`.
+
 ## Environment
 
 For the newer optimization experiments, see [docs/OPTIMIZATION.md](docs/OPTIMIZATION.md).

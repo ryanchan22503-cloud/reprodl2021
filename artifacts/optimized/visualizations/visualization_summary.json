@@ -1,0 +1,12 @@
+{
+  "samples": 400,
+  "correct": 268,
+  "incorrect": 132,
+  "accuracy": 0.67,
+  "median_confidence_correct": 0.820553095,
+  "median_confidence_incorrect": 0.42545122,
+  "correct_example": "5-127990-A-2.wav",
+  "incorrect_example": "5-103415-A-2.wav",
+  "example_selection": "Alphabetically first mistake in the most frequent directed confusion pair; first correct clip of the same true category if available, otherwise first correct clip overall.",
+  "note": "Illustrative examples, not a random or representative sample. No model predictions, weights, or scores are changed."
+}
