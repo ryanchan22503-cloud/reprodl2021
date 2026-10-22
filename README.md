@@ -1,9 +1,12 @@
-# ESC-50 audio classification
+# newcode1 — ESC-50 audio classification
 
 Train an audio classifier, save its best validation model, and evaluate it on held-out audio.
 This branch adapts Simone Scardapane's MIT-licensed [Reproducible Deep Learning course](https://github.com/sscardapane/reprodl2021).
 The original `Initial Notebook.ipynb`, license, and [upstream instructions](docs/UPSTREAM_README.md) are preserved.
 Use the new scripts or notebooks below; the original notebook retains its historical APIs.
+
+This version is named **newcode1**. Open [newcode1.ipynb](newcode1.ipynb) for the executed optimized model and results.
+See [the changes from the first iteration](docs/NEWCODE1_CHANGES.md) for a comparison.
 
 ## Latest result: 67% test accuracy
 
