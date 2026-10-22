@@ -9,10 +9,31 @@ import numpy as np
 import pandas as pd
 import torch
 
-from esc50 import AudioNet, Features, feature_key, make_loader, save_test_results, setup
+from esc50 import AudioNet, Features, augment_batch, build_model, feature_key, make_loader, save_test_results, setup
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_augmentation_preserves_cached_input(self):
+        setup(device='cpu')
+        cached = torch.randn(4,1,64,251)
+        original = cached.clone()
+        augmented = augment_batch(cached)
+        torch.testing.assert_close(cached,original)
+        self.assertEqual(augmented.shape,cached.shape)
+        self.assertTrue(torch.isfinite(augmented).all())
+        self.assertFalse(torch.equal(augmented,cached))
+
+    def test_new_architecture_roundtrip_and_legacy_configuration(self):
+        setup(device='cpu')
+        config = dict(architecture='spectrogram',base_filters=4,dropout=.3)
+        model = build_model(config).eval()
+        x = torch.randn(2,1,64,251)
+        restored = build_model(config).eval()
+        restored.load_state_dict(model.state_dict())
+        torch.testing.assert_close(model(x),restored(x))
+        self.assertEqual(tuple(model(x).shape),(2,50))
+        self.assertIsInstance(build_model(dict(base_filters=4)),AudioNet)
+
     def test_folds_are_isolated(self):
         meta = pd.DataFrame({'fold': [1,2,3,4,5], 'target': [0,1,2,3,4]})
         features = torch.arange(5).reshape(5,1,1,1).float()

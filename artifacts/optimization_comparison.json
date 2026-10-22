@@ -1,0 +1,14 @@
+{
+  "previous_test_accuracy": 0.54,
+  "optimized_test_accuracy": 0.67,
+  "gain_percentage_points": 13.0,
+  "additional_correct": 52,
+  "both_correct": 189,
+  "optimized_only_correct": 79,
+  "previous_only_correct": 27,
+  "both_wrong": 105,
+  "test_fold": 5,
+  "samples": 400,
+  "selection_used_test": false,
+  "checkpoint_sha256": "2c97292a6aa16a5b1179bfa9d5fda55849f8b783274dc4de2461622cb2f46b9d"
+}

@@ -1,0 +1,56 @@
+{
+  "data_dir": "C:\\Users\\ryan\\Desktop\\work folder\\new code\\data\\ESC-50-master",
+  "output_dir": "outputs\\optimization\\candidate-a",
+  "cache_dir": "C:\\Users\\ryan\\Desktop\\work folder\\new code\\data\\cache",
+  "epochs": 80,
+  "batch_size": 32,
+  "learning_rate": 0.001,
+  "seed": 0,
+  "device": "auto",
+  "dropout": 0.4,
+  "weight_decay": 0.0001,
+  "scheduler": "cosine",
+  "feature_preset": "highres",
+  "architecture": "spectrogram",
+  "augment": true,
+  "mixup": 0.0,
+  "label_smoothing": 0.05,
+  "optimizer": "adamw",
+  "features": {
+    "sample_rate": 16000,
+    "n_mels": 64,
+    "n_fft": 1024,
+    "hop_length": 320,
+    "top_db": 80,
+    "normalize": true
+  },
+  "model": {
+    "n_classes": 50,
+    "base_filters": 32,
+    "dropout": 0.4,
+    "architecture": "spectrogram"
+  },
+  "splits": {
+    "train": [
+      1,
+      2,
+      3
+    ],
+    "validation": [
+      4
+    ],
+    "test": [
+      5
+    ]
+  },
+  "environment": {
+    "python": "3.12.11",
+    "torch": "2.8.0+cu129",
+    "torchaudio": "2.8.0+cu129",
+    "numpy": "2.2.4",
+    "device": "cuda",
+    "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU"
+  },
+  "dataset_signature": "804555196e3f499af43764916ab38b26da5b30e2a91158d6827b77446444287d",
+  "metadata_sha256": "ca660da60191a97de289983a05821c9382d852a38a2ba8428980816b68cf6246"
+}

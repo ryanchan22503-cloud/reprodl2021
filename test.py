@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 import torch
-from esc50 import (ROOT, SPLITS, AudioNet, Features, environment, evaluate, load_features,
+from esc50 import (ROOT, SPLITS, Features, build_model, environment, evaluate, load_features,
                    make_loader, metadata, save_test_results, setup)
 
 
@@ -33,7 +33,7 @@ def main(argv=None):
     meta_hash = hashlib.sha256((args.data_dir/'meta/esc50.csv').read_bytes()).hexdigest()
     if meta_hash != checkpoint['run_config']['metadata_sha256']:
         raise ValueError('Dataset metadata differs from the training checkpoint.')
-    model = AudioNet(**checkpoint['model_config']).to(device)
+    model = build_model(checkpoint['model_config']).to(device)
     model.load_state_dict(checkpoint['state_dict'])
     x, _ = load_features(args.data_dir, meta, Features(**checkpoint['features']), args.cache_dir)
     loss, accuracy, truth, probabilities = evaluate(model, make_loader(meta, x, 'test', args.batch_size), device)

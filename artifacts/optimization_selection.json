@@ -1,0 +1,50 @@
+{
+  "selection_metric": "fold 4 validation accuracy",
+  "test_used_for_selection": false,
+  "candidates": [
+    {
+      "candidate": "candidate-a",
+      "validation_accuracy": 0.81,
+      "selected_epoch": 69,
+      "checkpoint": "outputs/optimization/candidate-a/audionet.ckpt",
+      "settings": {
+        "architecture": "spectrogram",
+        "feature_preset": "highres",
+        "epochs": 80,
+        "batch_size": 32,
+        "seed": 0,
+        "learning_rate": 0.001,
+        "weight_decay": 0.0001,
+        "optimizer": "adamw",
+        "scheduler": "cosine",
+        "augment": true,
+        "label_smoothing": 0.05,
+        "dropout": 0.4,
+        "mixup": 0.0
+      }
+    },
+    {
+      "candidate": "candidate-b",
+      "validation_accuracy": 0.8025,
+      "selected_epoch": 73,
+      "checkpoint": "outputs/optimization/candidate-b/audionet.ckpt",
+      "settings": {
+        "architecture": "spectrogram",
+        "feature_preset": "highres",
+        "epochs": 80,
+        "batch_size": 32,
+        "seed": 0,
+        "learning_rate": 0.001,
+        "weight_decay": 0.0001,
+        "optimizer": "adamw",
+        "scheduler": "cosine",
+        "augment": true,
+        "label_smoothing": 0.05,
+        "dropout": 0.3,
+        "mixup": 0.2
+      }
+    }
+  ],
+  "winner": "candidate-a",
+  "checkpoint": "artifacts/optimized/audionet.ckpt"
+}

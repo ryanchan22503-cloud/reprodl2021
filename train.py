@@ -5,8 +5,9 @@ import hashlib
 from pathlib import Path
 
 import pandas as pd
+import numpy as np
 import torch
-from esc50 import (ROOT, SPLITS, AudioNet, Features, environment, evaluate, load_features,
+from esc50 import (ROOT, SPLITS, Features, augment_batch, build_model, environment, evaluate, load_features,
                    make_loader, metadata, plot_example, plot_training, setup, write_json)
 
 
@@ -23,28 +24,40 @@ def main(argv=None):
     parser.add_argument('--dropout', type=float, default=0.0)
     parser.add_argument('--weight-decay', type=float, default=0.0)
     parser.add_argument('--scheduler', choices=['none', 'cosine'], default='none')
-    parser.add_argument('--feature-preset', choices=['standardized', 'original'], default='standardized',
+    parser.add_argument('--feature-preset', choices=['standardized', 'original', 'highres'], default='standardized',
                         help='original reproduces notebook mel defaults without standardization')
+    parser.add_argument('--architecture', choices=['baseline','spectrogram'],default='baseline')
+    parser.add_argument('--augment', action='store_true', help='Training-only time shifts and spectrogram masking')
+    parser.add_argument('--mixup',type=float,default=0.,help='Beta distribution alpha; zero disables mixup')
+    parser.add_argument('--label-smoothing',type=float,default=0.)
+    parser.add_argument('--optimizer',choices=['adam','adamw'],default='adam')
     args = parser.parse_args(argv)
     if args.epochs < 1 or args.batch_size < 1 or args.learning_rate <= 0 or args.weight_decay < 0 or not 0 <= args.dropout < 1:
         parser.error('Use positive epochs, batch size, learning rate; nonnegative weight decay; dropout in [0,1).')
+    if args.mixup < 0 or not 0 <= args.label_smoothing < 1:
+        parser.error('Mixup alpha must be nonnegative; label smoothing must be in [0,1).')
     out = args.output_dir.resolve()
     if out.exists() and any(out.iterdir()):
         parser.error(f'Output directory is not empty: {out}. Choose a new --output-dir to preserve previous runs.')
     device = setup(args.seed, args.device)
     meta = metadata(args.data_dir)
-    config = Features() if args.feature_preset=='standardized' else Features(n_mels=128, n_fft=400, hop_length=200, normalize=False)
+    presets = {'standardized':Features(), 'original':Features(n_mels=128,n_fft=400,hop_length=200,normalize=False),
+               'highres':Features(sample_rate=16000,n_mels=64,n_fft=1024,hop_length=320)}
+    config = presets[args.feature_preset]
     x, signature = load_features(args.data_dir, meta, config, args.cache_dir)
     out.mkdir(parents=True, exist_ok=True)
     model_config = dict(n_classes=50, base_filters=32, dropout=args.dropout)
+    if args.architecture != 'baseline':
+        model_config['architecture'] = args.architecture
     classes = meta.sort_values('target').drop_duplicates('target').category.tolist()
     run = {key: str(value) if isinstance(value, Path) else value for key, value in vars(args).items()}
     run.update(features=asdict(config), model=model_config, splits=SPLITS, environment=environment(device),
                dataset_signature=signature, metadata_sha256=hashlib.sha256((args.data_dir/'meta/esc50.csv').read_bytes()).hexdigest())
     write_json(out/'run_config.json', run)
     plot_example(args.data_dir, meta.iloc[0], x[0], out)
-    model = AudioNet(**model_config).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
+    model = build_model(model_config).to(device)
+    optimizer_class = torch.optim.AdamW if args.optimizer=='adamw' else torch.optim.Adam
+    optimizer = optimizer_class(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, args.epochs) if args.scheduler=='cosine' else None
     train = make_loader(meta, x, 'train', args.batch_size, args.seed)
     val = make_loader(meta, x, 'validation', args.batch_size)
@@ -55,13 +68,21 @@ def main(argv=None):
         total, correct, count = 0., 0, 0
         for xb, y in train:
             xb, y = xb.to(device), y.to(device)
+            if args.augment:
+                xb = augment_batch(xb)
+            lam = float(np.random.beta(args.mixup,args.mixup)) if args.mixup else 1.
+            permutation = torch.randperm(len(y),device=device) if args.mixup else torch.arange(len(y),device=device)
+            if args.mixup:
+                xb = lam*xb+(1-lam)*xb[permutation]
             optimizer.zero_grad(set_to_none=True)
             logits = model(xb)
-            loss = torch.nn.functional.cross_entropy(logits, y)
+            loss = lam*torch.nn.functional.cross_entropy(logits,y,label_smoothing=args.label_smoothing)
+            if args.mixup:
+                loss = loss+(1-lam)*torch.nn.functional.cross_entropy(logits,y[permutation],label_smoothing=args.label_smoothing)
             loss.backward()
             optimizer.step()
             total += loss.item()*len(y)
-            correct += (logits.argmax(1)==y).sum().item()
+            correct += (lam*(logits.argmax(1)==y).sum()+(1-lam)*(logits.argmax(1)==y[permutation]).sum()).item()
             count += len(y)
         vl, accuracy, _, _ = evaluate(model, val, device)
         row = dict(epoch=epoch, train_loss=total/count, train_accuracy=correct/count,

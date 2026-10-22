@@ -25,7 +25,7 @@ def main():
     report = {'original': metrics[0], 'updated': metrics[1], 'paired': paired,
               'accuracy_gain_percentage_points': 100*(metrics[1]['accuracy']-metrics[0]['accuracy']),
               'additional_correct_clips': int(b.sum()-a.sum()),
-              'note': 'Single seed and held-out fold; original is a compatibility adaptation; updated code remains local.'}
+              'note': 'Single seed and held-out fold; original is a compatibility adaptation; no settings selected using test results.'}
     (output/'comparison.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
     fig, axes = plt.subplots(1,3,figsize=(15,4.5))
     colors = ['#52758c','#16856b']

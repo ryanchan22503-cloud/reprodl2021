@@ -1,0 +1,7 @@
+{
+  "epochs": 80,
+  "selected_epoch": 73,
+  "best_validation_accuracy": 0.8025,
+  "train_samples": 1200,
+  "validation_samples": 400
+}

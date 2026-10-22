@@ -5,7 +5,29 @@ This branch adapts Simone Scardapane's MIT-licensed [Reproducible Deep Learning 
 The original `Initial Notebook.ipynb`, license, and [upstream instructions](docs/UPSTREAM_README.md) are preserved.
 Use the new scripts or notebooks below; the original notebook retains its historical APIs.
 
+## Latest result: 67% test accuracy
+
+The validation-selected optimized model correctly classified **268/400** held-out clips, compared with
+**216/400 (54%)** for the previous update. Best validation accuracy was **81%**. These are single-seed,
+single-fold results; the optimized model also uses more training compute (80 rather than 25 epochs).
+
+The saved model, reports and plots are included in `artifacts/`, and the executed notebook is
+[optimized_code_run.ipynb](optimized_code_run.ipynb). After environment and dataset setup, test it with:
+
+```powershell
+.\.venv\Scripts\python test.py --checkpoint artifacts/optimized/audionet.ckpt
+```
+
+This writes fresh results to `artifacts/optimized/test/`. Use `--output-dir outputs/my-optimized-test`
+to preserve the published reports. Training and test defaults remain the earlier baseline for compatibility;
+use the explicit checkpoint above for the optimized model.
+
+![Optimization results](artifacts/optimization_comparison.png)
+
 ## Environment
+
+For the newer optimization experiments, see [docs/OPTIMIZATION.md](docs/OPTIMIZATION.md).
+The original 25-epoch workflow and its saved models remain compatible.
 
 Use **Python 3.12** and run these commands from the repository folder.
 A standalone `.venv` has already been prepared on this laptop; it does not reference the ComfyUI environment.
@@ -124,6 +146,8 @@ A single test fold is an introductory baseline, not the official five-fold mean.
 .\.venv\Scripts\python -m pip check
 ```
 
-Checks cover fold isolation, checkpoint prediction round trips, feature cache invalidation keys, and metrics for classes
-with no predicted examples. Full dataset train/test results are recorded in [docs/VALIDATION.md](docs/VALIDATION.md).
+Six checks cover fold isolation, old/new model reconstruction, checkpoint prediction round trips,
+feature cache invalidation, augmentation cache integrity, and metrics for classes with no predicted examples.
+Baseline results are recorded in [docs/VALIDATION.md](docs/VALIDATION.md); further optimization results
+and exact settings are in [docs/OPTIMIZATION.md](docs/OPTIMIZATION.md).
 Virtual environments, datasets, caches, and generated models/results are ignored by Git.

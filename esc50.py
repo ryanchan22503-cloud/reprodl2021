@@ -151,6 +151,56 @@ def make_loader(meta, x, split, batch_size, seed=0):
                                        generator=torch.Generator().manual_seed(seed), num_workers=0)
 
 
+class SpectrogramNet(nn.Module):
+    """Small VGG-style CNN retaining four frequency regions during temporal pooling."""
+    def __init__(self, n_classes=50, base_filters=32, dropout=.3):
+        super().__init__()
+        layers, channels = [], 1
+        for index, width in enumerate([base_filters, base_filters*2, base_filters*4, base_filters*8]):
+            layers.extend([
+                nn.Conv2d(channels, width, 3, padding=1, bias=False,
+                          stride=(1,2) if index==0 else 1),
+                nn.BatchNorm2d(width), nn.ReLU(),
+                nn.Conv2d(width, width, 3, padding=1, bias=False),
+                nn.BatchNorm2d(width), nn.ReLU(), nn.AvgPool2d(2), nn.Dropout2d(.1)])
+            channels = width
+        self.encoder = nn.Sequential(*layers)
+        self.head = nn.Sequential(nn.Dropout(dropout), nn.Linear(channels*4*2, n_classes))
+
+    def forward(self, x):
+        x = self.encoder(x)
+        # Preserve coarse frequency position, pool over time with mean and maximum.
+        avg = nn.functional.adaptive_avg_pool2d(x, (4,1)).flatten(1)
+        maximum = nn.functional.adaptive_max_pool2d(x, (4,1)).flatten(1)
+        return self.head(torch.cat([avg,maximum],dim=1))
+
+
+def build_model(config):
+    config = dict(config)
+    architecture = config.pop('architecture', 'baseline')
+    if architecture == 'baseline':
+        return AudioNet(**config)
+    if architecture == 'spectrogram':
+        return SpectrogramNet(**config)
+    raise ValueError(f'Unknown architecture: {architecture}')
+
+
+def augment_batch(x, frequency_mask=8, time_mask=24):
+    """Training-only per-clip time shifts and time/frequency masking; never mutate cache."""
+    shifts = torch.randint(-x.shape[-1]//10, x.shape[-1]//10+1, (len(x),),device=x.device)
+    positions = (torch.arange(x.shape[-1],device=x.device)[None,:]-shifts[:,None]) % x.shape[-1]
+    x = x.gather(-1,positions[:,None,None,:].expand_as(x))
+    for axis, limit in [(2,frequency_mask),(3,time_mask)]:
+        length = x.shape[axis]
+        widths = torch.randint(0,min(limit,length)+1,(len(x),),device=x.device)
+        starts = (torch.rand(len(x),device=x.device)*(length-widths+1)).long()
+        indexes = torch.arange(length,device=x.device)[None,:]
+        mask = (indexes>=starts[:,None]) & (indexes<(starts+widths)[:,None])
+        mask = mask[:,None,:,None] if axis==2 else mask[:,None,None,:]
+        x = x.masked_fill(mask,0)
+    return x
+
+
 @torch.inference_mode()
 def evaluate(model, batches, device):
     model.eval()

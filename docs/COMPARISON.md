@@ -6,7 +6,8 @@ GitHub's `ryanchan22503-cloud/reprodl2021` branches `main` and `test-branch` wer
 `b391c31576518eb6a4383e1b045da59d34ebbc97` when checked through the GitHub connector.
 The notebook blob on the fork and original upstream repository was identical:
 `aaabb683d6877753eb895d9b03b9109bb328a06c`.
-The updated workflow files remain local and uncommitted; no GitHub code was published for this comparison.
+At the time of this comparison the updated files were local; the workflow and executed notebooks have since
+been published on `test-branch`. The result table below records the original 25-epoch experiment.
 
 Training ran locally on the laptop's RTX 4060, not on GitHub-hosted hardware.
 The original notebook's import check failed in the project's modern environment because `pytorch_lightning`
